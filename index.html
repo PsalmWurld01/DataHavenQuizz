@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>DataHaven PlayHub — Quiz & Games</title>
+<style>
+  :root{
+    --bg1:#041017; --bg2:#08172b; --accent:#49c7ff; --muted:#9fc2ea;
+    --card:#071a2b; --good:#00c776; --bad:#ff5b5b; --glass:rgba(255,255,255,0.04);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; font-family:"Poppins",system-ui,Segoe UI,Roboto,Helvetica,Arial;
+    background: radial-gradient(circle at 10% 10%, var(--bg1), var(--bg2));
+    color:#e7f6ff; display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .app{
+    width:100%; max-width:1100px; display:grid; grid-template-columns: 360px 1fr; gap:20px;
+  }
+  /* Left column: Landing & Menu */
+  .panel{
+    background:linear-gradient(180deg, rgba(10,24,40,0.95), rgba(6,14,28,0.95));
+    border-radius:12px; padding:18px; border:1px solid rgba(80,200,255,0.06);
+    box-shadow:0 10px 30px rgba(0,12,30,0.6);
+  }
+  .brand{display:flex; align-items:center; gap:12px; margin-bottom:12px}
+  .brand .logo{font-size:2.2rem}
+  .brand h1{font-size:1.15rem; color:var(--accent); margin:0}
+  .tag{color:var(--muted); font-size:0.92rem; margin-bottom:14px}
+
+  .name-row{display:flex; gap:8px; margin-bottom:12px; align-items:center}
+  input[name="player"]{flex:1;padding:10px;border-radius:8px;border:1px solid var(--glass); background:transparent;color:inherit}
+  button.small{padding:8px 10px;border-radius:8px;border:none;background:var(--accent);color:#052033;font-weight:700;cursor:pointer}
+
+  .menu{display:flex; flex-direction:column; gap:10px}
+  .card{background:linear-gradient(180deg, rgba(9,18,30,0.85), rgba(7,12,20,0.85)); padding:14px; border-radius:10px;}
+  .card h2{margin:0 0 6px 0;color:#dff7ff;font-size:1rem}
+  .card p{margin:0;color:var(--muted);font-size:0.92rem}
+
+  .controls{display:flex; gap:10px; margin-top:12px}
+  .btn{padding:10px 14px;border-radius:10px;border:none;background:var(--accent);color:#052033;font-weight:700;cursor:pointer}
+  .ghost{background:transparent;border:1px solid var(--glass);color:var(--muted)}
+  .muted{background:transparent;color:var(--muted)}
+
+  /* Right column: Game area */
+  .stage{background:linear-gradient(180deg, rgba(6,12,22,0.6), rgba(4,8,15,0.6)); border-radius:12px; padding:18px; min-height:520px}
+  .hidden{display:none}
+  .title-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px}
+  .title-row h2{margin:0;color:var(--accent)}
+  .progress{color:var(--muted); font-size:0.95rem}
+
+  /* Quiz styles */
+  #quiz-area .question{font-weight:700;font-size:1.05rem;margin-bottom:10px}
+  .answers{display:grid; gap:10px}
+  .choice{padding:12px;border-radius:10px;border:1px solid var(--glass); background:linear-gradient(180deg,#07243a,#062036); color:#e9f9ff; cursor:pointer; text-align:left}
+  .choice:hover{transform:translateY(-2px)}
+  .choice.correct{background:linear-gradient(180deg,#1ad488,#00b894); color:#042214; border-color:rgba(0,184,120,0.9)}
+  .choice.wrong{background:linear-gradient(180deg,#ff7b7b,#e54747); color:#fff; border-color:rgba(230,70,70,0.9)}
+  .feedback{margin-top:10px;font-weight:700;min-height:22px}
+
+  .timer-row{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:12px}
+  .timer-bar{height:8px;background:rgba(255,255,255,0.06); border-radius:999px; overflow:hidden; flex:1}
+  .timer-fill{height:100%; width:100%; background:linear-gradient(90deg,var(--accent),#7ee0ff); transition:width 0.2s linear}
+  .timer-num{min-width:48px; text-align:right; color:var(--muted)}
+
+  /* Reactor */
+  .reactor-stage{display:flex; flex-direction:column; align-items:center; gap:12px}
+  .reactor-target{font-weight:700;color:var(--muted)}
+  .reactor-button{width:180px;height:120px;border-radius:12px;border:1px solid var(--glass); cursor:pointer; font-size:1rem; font-weight:800; display:flex; align-items:center; justify-content:center}
+  .reactor-stats{display:flex; gap:10px; margin-top:6px; color:var(--muted)}
+
+  /* Leaderboard / results */
+  .result-card{display:grid; gap:8px; text-align:center; align-items:center}
+  .medal{font-size:3.6rem}
+  .message{color:var(--muted)}
+  .leaderboard{margin-top:10px; text-align:left}
+  .leaderboard li{padding:6px 0;border-bottom:1px dashed rgba(255,255,255,0.03); color:var(--muted)}
+
+  /* responsive */
+  @media (max-width:980px){ .app{grid-template-columns:1fr; } .stage{min-height:420px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Left: Landing & Menu -->
+  <div class="panel">
+    <div class="brand">
+      <div class="logo">🦌</div>
+      <div>
+        <h1>DataHaven PlayHub</h1>
+        <div class="tag">Learn, play, and climb the Hall of Guardians</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+        <div style="font-weight:700">Player</div>
+        <div style="font-size:0.9rem; color:var(--muted)">Edit anytime</div>
+      </div>
+      <div class="name-row">
+        <input id="playerName" name="player" placeholder="Enter name (e.g., Psalmuel)" />
+        <button id="saveName" class="small">Save</button>
+      </div>
+      <div style="font-size:0.85rem; color:var(--muted)">Current: <span id="displayName">Guest</span></div>
+    </div>
+
+    <div class="menu">
+      <div class="card">
+        <h2>Games</h2>
+        <p>Choose a game: challenge your knowledge or test your reflexes.</p>
+        <div class="controls" style="margin-top:12px">
+          <button id="startQuiz" class="btn">🧩 Data Quiz</button>
+          <button id="startReactor" class="btn ghost">🎯 Color Reactor</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Options</h2>
+        <p>Timer: <strong id="timerLabel">15s</strong> • Sounds: <span id="soundState">On</span></p>
+        <div class="controls" style="margin-top:10px">
+          <button id="decreaseTime" class="ghost">-5s</button>
+          <button id="increaseTime" class="ghost">+5s</button>
+          <button id="toggleSound" class="ghost">Mute</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Leaderboards</h2>
+        <p>Top scores are saved locally (top 5)</p>
+        <div style="margin-top:8px">
+          <button id="viewQuizBoard" class="ghost">Quiz Leaderboard</button>
+          <button id="viewReactorBoard" class="ghost">Reactor Leaderboard</button>
+          <button id="viewHall" class="ghost">Hall of Guardians</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="margin-top:12px; text-align:center; color:var(--muted); font-size:0.85rem">
+      Built with 💙 for DataHaven by <a href="https://x.com/Hunter_Muel" target="_blank" style="color:var(--accent); text-decoration:none">Psalmuel</a>
+    </div>
+  </div>
+
+  <!-- Right: Stage -->
+  <div class="stage">
+    <!-- Landing / Info -->
+    <div id="landing" class="card">
+      <div class="title-row">
+        <h2>Welcome to DataHaven PlayHub</h2>
+        <div class="progress">Ready to play</div>
+      </div>
+      <p style="color:var(--muted)">Choose a game on the left. You’ll get 15 randomized quiz questions per round, or try the Color Reactor for fast reflex points. Points and ranks are saved locally.</p>
+      <div style="display:flex; gap:10px; margin-top:12px; justify-content:flex-end">
+        <button id="quickStart" class="btn">Quick Start Quiz</button>
+        <button id="openMenu" class="btn ghost">Open Menu</button>
+      </div>
+    </div>
+
+    <!-- Quiz Area -->
+    <div id="quiz-area" class="card hidden">
+      <div class="title-row">
+        <h2>Data Quiz</h2>
+        <div class="progress" id="quizProgress">Question 1/15</div>
+      </div>
+      <div class="question" id="qText">Loading question...</div>
+
+      <div class="answers" id="answers"></div>
+
+      <div class="feedback" id="feedback"></div>
+
+      <div class="timer-row">
+        <div class="timer-bar"><div id="timerFill" class="timer-fill"></div></div>
+        <div class="timer-num" id="timerNum">15s</div>
+      </div>
+
+      <div class="controls" style="margin-top:12px; justify-content:flex-end">
+        <button id="quitQuiz" class="ghost">Quit</button>
+        <button id="nextQ" class="btn" disabled>Next</button>
+      </div>
+    </div>
+
+    <!-- Reactor Area -->
+    <div id="reactor-area" class="card hidden">
+      <div class="title-row">
+        <h2>Color Reactor</h2>
+        <div class="progress" id="reactorProgress">Round 1/10</div>
+      </div>
+      <div class="reactor-stage" style="align-items:center">
+        <div class="reactor-target" id="reactorTarget">Click when the color is: <strong id="targetName">BLUE</strong></div>
+        <button id="reactorBtn" class="reactor-button" style="background:#123456">WAIT</button>
+        <div class="reactor-stats"><div>Score: <strong id="reactorScore">0</strong></div><div>Round: <strong id="reactorRound">0</strong></div></div>
+        <div style="display:flex; gap:10px; margin-top:10px">
+          <button id="quitReactor" class="ghost">Quit</button>
+          <button id="startReactorBtn" class="btn">Start Reactor</button>
+        </div>
+      </div>
+      <div class="feedback" id="reactorFeedback"></div>
+    </div>
+
+    <!-- Result Card -->
+    <div id="result-area" class="card hidden">
+      <div class="result-card">
+        <div class="medal" id="resultMedal">🏅</div>
+        <div id="resultScore" style="font-weight:800; font-size:1.05rem">Score: 0</div>
+        <div class="message" id="resultMessage">Well done</div>
+        <div style="display:flex; gap:10px; margin-top:8px">
+          <button id="saveScoreBtn" class="btn">Save Score</button>
+          <button id="shareScoreBtn" class="ghost">Copy Share Text</button>
+          <button id="playAgainBtn" class="ghost">Play Again</button>
+        </div>
+
+        <div class="leaderboard" id="resultLeaderboard"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* -------------------------
+  DataHaven PlayHub JS
+  - Single-file app
+  - Quiz (50 pool => 15 random)
+  - Reactor mini-game
+  - localStorage leaderboards
+  - Sounds via WebAudio (no external files)
+---------------------------*/
+
+/* ======= Configurable ======= */
+let perQuestionTime = 15;            // default timer (seconds)
+const QUIZ_QUESTIONS_PER_ROUND = 15; // pick 15 random out of pool
+const REACTOR_ROUNDS = 10;           // reactor rounds
+const QUIZ_POINTS_CORRECT = 10;
+const QUIZ_POINTS_WRONG = -3;
+const QUIZ_POINTS_TIMEOUT = 0;
+const LEADERBOARD_LIMIT = 5;
+/* ============================ */
+
+/* ------- Utilities -------- */
+function $(id){ return document.getElementById(id); }
+function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+function shuffle(a){ const arr = a.slice(); for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];} return arr; }
+function pickN(arr,n){ return shuffle(arr).slice(0,n); }
+function saveJSON(key,val){ localStorage.setItem(key, JSON.stringify(val)); }
+function readJSON(key,def){ const v=localStorage.getItem(key); return v?JSON.parse(v):def; }
+
+/* ------- Sound: simple tones using WebAudio ------- */
+const audioCtx = typeof AudioContext !== 'undefined' ? new AudioContext() : null;
+let soundEnabled = true;
+function beep(freq=440, time=0.12, type='sine', vol=0.12){
+  if(!soundEnabled || !audioCtx) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.value = vol;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + time);
+}
+
+/* click-friendly short sounds */
+function soundTick(){ beep(1000,0.04,'square',0.02); }
+function soundCorrect(){ beep(880,0.16,'sine',0.08); setTimeout(()=>beep(1320,0.08,'sine',0.06),60); }
+function soundWrong(){ beep(220,0.18,'sawtooth',0.08); }
+
+/* ------- Player & UI elements ------- */
+let playerName = localStorage.getItem('dh_player_name') || 'Guest';
+$('displayName').textContent = playerName;
+$('playerName').value = playerName;
+
+/* name edits */
+$('saveName').addEventListener('click', ()=>{
+  const v = $('playerName').value.trim() || 'Guest';
+  playerName = v;
+  localStorage.setItem('dh_player_name', playerName);
+  $('displayName').textContent = playerName;
+});
+
+/* Timer adjustment & sound toggle */
+$('decreaseTime').addEventListener('click', ()=>{
+  perQuestionTime = clamp(perQuestionTime-5,5,60); $('timerLabel').textContent = perQuestionTime+'s';
+});
+$('increaseTime').addEventListener('click', ()=>{
+  perQuestionTime = clamp(perQuestionTime+5,5,60); $('timerLabel').textContent = perQuestionTime+'s';
+});
+$('toggleSound').addEventListener('click', ()=>{
+  soundEnabled = !soundEnabled; $('soundState').textContent = soundEnabled ? 'On' : 'Muted'; $('toggleSound').textContent = soundEnabled ? 'Mute' : 'Unmute';
+});
+
+/* Quick start and menu open */
+$('quickStart').addEventListener('click', ()=> startQuizFlow(true));
+$('openMenu').addEventListener('click', ()=> { /* maybe scroll focus */ alert('Choose a game on left.'); });
+
+/* Menu buttons */
+$('startQuiz').addEventListener('click', ()=> startQuizFlow(false));
+$('startReactor').addEventListener('click', ()=> startReactorFlow());
+$('viewQuizBoard').addEventListener('click', ()=> showLeaderboard('quiz'));
+$('viewReactorBoard').addEventListener('click', ()=> showLeaderboard('reactor'));
+$('viewHall').addEventListener('click', ()=> showHall());
+
+/* ------- Leaderboard keys ------- */
+const LB_QUIZ_KEY = 'dh_lb_quiz';
+const LB_REACTOR_KEY = 'dh_lb_reactor';
+
+/* ------- 50-question pool (DataHaven + related) ------- */
+/* For brevity: carefully crafted questions covering DataHaven, AVS, EigenLayer, verifiability, AI. */
+const QUESTION_POOL = [
+  { q:"What is DataHaven’s core purpose?", a:["Sell NFTs","Provide verifiable, tamper-proof data","Host social networks","Mine tokens"], correct:1 },
+  { q:"Which mechanism provides security for DataHaven via restaking?", a:["EigenLayer","Proof-of-Stake zk","Sharding","Lightning"], correct:0 },
+  { q:"AVS in DataHaven stands for?", a:["Autonomous Verifiable Service","Advanced Validation Standard","Atomic Vault Service","Autonomous Value Stream"], correct:0 },
+  { q:"Who is DataHaven’s mascot?", a:["Bruce the Moose","Satoshi the Fox","Aria the Owl","Garnet the Hawk"], correct:0 },
+  { q:"DataHaven primarily targets data for which tech?", a:["AI & Web3","Mobile apps","Video streaming","Gaming leaderboards"], correct:0 },
+  { q:"What is a key property DataHaven ensures about stored data?", a:["Tamper-resistance via proofs","Infinite storage","Free bandwidth","Automatic deletion"], correct:0 },
+  { q:"Which chain is commonly involved with restaking for DataHaven security?", a:["Ethereum","Solana","XRP Ledger","Bitcoin"], correct:0 },
+  { q:"Why is verifiable data important for AI?", a:["Prevents misinformation and improves model trust","Faster downloads","Cheaper gas","Bigger models"], correct:0 },
+  { q:"Which of these is NOT a feature of DataHaven?", a:["Onchain cryptographic proofs","Centralized moderation","AVS architecture","Support for verifiable datasets"], correct:1 },
+  { q:"Cryptographic proofs in DataHaven guarantee what?", a:["Integrity and provenance","Lower costs","Faster mining","Instant consensus"], correct:0 },
+  { q:"Restaking via EigenLayer provides what benefit?", a:["Shared security for new services","Guaranteed airdrops","Faster block times","Free storage"], correct:0 },
+  { q:"Which role best describes Bruce in the community?", a:["Symbol of wisdom and stability","Technical founder","Token","Validator operator"], correct:0 },
+  { q:"DataHaven helps AI by providing:", a:["Trusted, verifiable datasets","GPU rentals","Token staking rewards","NFT minting"], correct:0 },
+  { q:"What does a higher verifiability of data reduce?", a:["Misinformation and bias in AI","Battery usage","Storage costs","Latency"], correct:0 },
+  { q:"Data stored with cryptographic proofs is:", a:["Tamper-evident","Invisible","Automatically encrypted for everyone","Temporary"], correct:0 },
+  { q:"Which description fits DataHaven architecture?", a:["AVS built on restaked security","Traditional cloud bucket","Social feed backend","Video CDN"], correct:0 },
+  { q:"Which is a likely consumer of DataHaven data?", a:["AI model trainers","Casual gamers only","Stock traders exclusively","Printer services"], correct:0 },
+  { q:"Data provenance means:", a:["Knowing origin and history of data","Deleting older versions","Compressing data","Translating text"], correct:0 },
+  { q:"Which term relates to proof of data existence at a time?", a:["Timestamping","Proof-of-work","Liquidity","Forking"], correct:0 },
+  { q:"Why might AI models prefer DataHaven datasets?", a:["They are verifiable and auditable","They are free","They are always small","They have NFTs"], correct:0 },
+  { q:"What problem does an AVS aim to solve?", a:["Provide autonomous verifiable capabilities to services","Increase token supply","Speed up video encoding","Reduce user logins"], correct:0 },
+  { q:"Which is true about restaking security?", a:["It reuses staked assets to secure new services","It burns tokens","It involves separate credentials","It requires central approval"], correct:0 },
+  { q:"Which tool could be used to verify DataHaven proofs?", a:["Blockchain explorers & verification clients","Spreadsheet macros","Image editors","Music players"], correct:0 },
+  { q:"What does 'tamper-proof' mean practically?", a:["Changes become detectable","Files self-delete","Access is unlimited","Encryption is optional"], correct:0 },
+  { q:"A 'verifiable dataset' allows:", a:["Auditors or models to confirm data integrity","Faster video streaming","Automatic NFT royalty","Private keys sharing"], correct:0 },
+  { q:"Which of these is a risk DataHaven mitigates for AI?", a:["Model hallucinations due to bad data","Low battery","Slow UI","Noisy audio"], correct:0 },
+  { q:"DataHaven’s design encourages:", a:["Trustworthy AI pipelines","Monolithic hosting","Closed ecosystems","Silent nodes"], correct:0 },
+  { q:"If data has provenance, you can:", a:["Trace where it came from","Automatically mint tokens","Streamline video playback","Encrypt user passwords"], correct:0 },
+  { q:"Which is NOT a substitute for verifiable data?", a:["Unverified scraped text","Cryptographic proofs","Signed datasets","Provenance metadata"], correct:0 },
+  { q:"Which is a value-add of verifiable data marketplaces?", a:["Higher data trust","Reduced storage size","Faster uploads","Guaranteed accuracy always"], correct:0 },
+  { q:"DataHaven contributions often relate to:", a:["Data availability & proofs","Real estate listings","Weather predictions only","Graphic design"], correct:0 },
+  { q:"Which is an expected metric for verifiable datasets?", a:["Provenance score","Screen resolution","Sound volume","Button color"], correct:0 },
+  { q:"What does 'restaking' reuse?", a:["Staked assets (economic security)","Bandwidth","GPU cycles","User accounts"], correct:0 },
+  { q:"Which is an example consumer of verified data?", a:["A trusted AI model for healthcare","A casual chat app unrelated to truth","A video player","A GIF maker"], correct:0 },
+  { q:"Which approach helps prove data authenticity?", a:["Merkle proofs & cryptographic signatures","Random guessing","Manual tweets","Mass copying"], correct:0 },
+  { q:"DataHaven most helps with which AI issue?", a:["Data trust and auditability","Model size","Faster GPUs","Lower latency"], correct:0 },
+  { q:"What is an AVS's property?", a:["Operates autonomously and provides verifiable outputs","Requires manual daily edits","Always centralized","Only for NFTs"], correct:0 },
+  { q:"Which is true about DataHaven & onchain proofs?", a:["They anchor proofs to blockchains for trust","Proofs are private by default","Proofs automatically change","Proofs delete themselves"], correct:0 },
+  { q:"Why might regulators appreciate verifiable datasets?", a:["They can audit sources and integrity","They get free data","They avoid all responsibility","They can change data unnoticed"], correct:0 },
+  { q:"Which is likely part of a verification workflow?", a:["Fetch proof, verify signature, confirm timestamp","Ignore metadata","Share passwords","Delete evidence"], correct:0 },
+  { q:"DataHaven's mascot being a moose suggests:", a:["Stability & resilience","Speed & volatility","Small size","Loud noise"], correct:0 },
+  { q:"An AVS could be described as:", a:["A service that produces verifiable outputs","A random number generator","A game engine","A social network algorithm"], correct:0 },
+  { q:"Which is not a primary DataHaven aim?", a:["Selling user data as default","Verifiability","AI trust","Data provenance"], correct:0 },
+  { q:"Which phrase best captures DataHaven's mission?", a:["Trust layer for AI via verifiable data","Faster memes","Free cloud storage","Social-first data"], correct:0 },
+  { q:"Why do AI pipelines benefit from anchored proofs?", a:["Models can validate training data origins","They run cheaper","They get more followers","They require no evaluation"], correct:0 },
+  { q:"Which is a likely extension of DataHaven tech?", a:["Marketplace for verifiable datasets","Streaming platform","Music store","Gaming engine only"], correct:0 },
+  { q:"What does 'provenance metadata' include?", a:["Author, timestamp, and chain proofs","File size only","Only title","Color theme"], correct:0 },
+  { q:"Which is the best short definition of DataHaven?", a:["A system making data verifiable and auditable","A meme coin","A chat app","A wallet"], correct:0 },
+];
+
+/* Ensure we have 50; if fewer, replicate with slight variants (but we provided 50-ish) */
+if(QUESTION_POOL.length < 50){
+  // in case shorter, replicate simple variations (not likely)
+  while(QUESTION_POOL.length < 50){
+    const sample = QUESTION_POOL[QUESTION_POOL.length % QUESTION_POOL.length];
+    QUESTION_POOL.push(JSON.parse(JSON.stringify(sample)));
+  }
+}
+
+/* ------- App State for Quiz ------- */
+let quizQuestions = []; // selected 15
+let quizCurrent = 0;
+let quizScore = 0;
+let quizTimer = null;
+let quizTimeLeft = perQuestionTime;
+let quizSelected = -1;
+
+/* ------- UI refs ------- */
+const qText = $('qText'); // not used directly
+const answersDiv = $('answers');
+const qTextEl = $('qText');
+const feedbackEl = $('feedback');
+const timerFill = $('timerFill');
+const timerNum = $('timerNum');
+const nextQBtn = $('nextQ');
+const quitQuizBtn = $('quitQuiz');
+const quizProgress = $('quizProgress');
+
+/* ------- Functions to start quiz ------- */
+function startQuizFlow(quick=false){
+  // show quiz area
+  $('landing').classList.add('hidden');
+  $('reactor-area').classList.add('hidden');
+  $('result-area').classList.add('hidden');
+  $('quiz-area').classList.remove('hidden');
+
+  // prepare quiz: pick 15 random from pool
+  quizQuestions = pickN(QUESTION_POOL, QUIZ_QUESTIONS_PER_ROUND).map(item=>{
+    // create shuffled choices with tracked correct index
+    const choices = shuffle(item.a || item.answers || []);
+    // if item.correct provided as index in original, map to text
+    const correctText = ('correct' in item) ? (item.a?item.a[item.correct]: (item.answers?item.answers[item.correct]:null)) : null;
+    // find correct index in choices
+    const correctIndex = correctText ? choices.indexOf(correctText) : 0;
+    return { q: item.q, choices, correctIndex };
+  });
+
+  quizCurrent = 0; quizScore = 0;
+  showQuizQuestion();
+}
+
+/* show single quiz question */
+function showQuizQuestion(){
+  stopQuizTimer();
+  feedbackEl.textContent = '';
+  quizSelected = -1;
+  const cur = quizQuestions[quizCurrent];
+  qTextEl.textContent = cur.q;
+  answersDiv.innerHTML = '';
+  cur.choices.forEach((ch, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice';
+    btn.textContent = ch;
+    btn.dataset.idx = idx;
+    btn.addEventListener('click', ()=> handleQuizChoice(btn, idx));
+    answersDiv.appendChild(btn);
+  });
+  quizTimeLeft = perQuestionTime;
+  updateTimerUI();
+  startQuizTimer();
+  nextQBtn.disabled = true;
+  quizProgress.textContent = `Question ${quizCurrent+1}/${QUIZ_QUESTIONS_PER_ROUND}`;
+}
+
+/* timer control */
+function startQuizTimer(){
+  const start = Date.now();
+  // tick every 200ms for smoother bar + tick every 1s sound optionally
+  let lastSecond = Math.ceil(quizTimeLeft);
+  quizTimer = setInterval(()=>{
+    const elapsed = (Date.now() - start)/1000;
+    quizTimeLeft = Math.max(0, perQuestionTime - elapsed);
+    updateTimerUI();
+    const sec = Math.ceil(quizTimeLeft);
+    if(sec !== lastSecond && soundEnabled){ soundTick(); lastSecond = sec; }
+    if(quizTimeLeft <= 0){
+      // timeout
+      stopQuizTimer();
+      handleQuizTimeout();
+    }
+  }, 150);
+}
+
+function stopQuizTimer(){ if(quizTimer){ clearInterval(quizTimer); quizTimer = null; } }
+
+function updateTimerUI(){
+  const pct = (quizTimeLeft / perQuestionTime) * 100;
+  timerFill.style.width = pct + '%';
+  timerNum.textContent = Math.ceil(quizTimeLeft) + 's';
+}
+
+/* handle answer click */
+function handleQuizChoice(btn, idx){
+  if(quizSelected !== -1) return;
+  quizSelected = idx;
+  stopQuizTimer();
+  const cur = quizQuestions[quizCurrent];
+  const all = answersDiv.querySelectorAll('.choice');
+  all.forEach((b,i)=>{
+    b.disabled = true;
+    if(i === cur.correctIndex) b.classList.add('correct');
+    if(i === idx && i !== cur.correctIndex) b.classList.add('wrong');
+  });
+  if(idx === cur.correctIndex){
+    quizScore += QUIZ_POINTS_CORRECT;
+    feedbackEl.textContent = "Correct! +" + QUIZ_POINTS_CORRECT;
+    feedbackEl.style.color = 'var(--good)';
+    if(soundEnabled) soundCorrect();
+  } else {
+    quizScore += QUIZ_POINTS_WRONG;
+    feedbackEl.textContent = "Wrong! " + (QUIZ_POINTS_WRONG>0?("+"+QUIZ_POINTS_WRONG):(""+QUIZ_POINTS_WRONG));
+    feedbackEl.style.color = 'var(--bad)';
+    if(soundEnabled) soundWrong();
+  }
+  nextQBtn.disabled = false;
+}
+
+/* handle timeout */
+function handleQuizTimeout(){
+  const cur = quizQuestions[quizCurrent];
+  const all = answersDiv.querySelectorAll('.choice');
+  all.forEach((b,i)=>{ b.disabled = true; if(i === cur.correctIndex) b.classList.add('correct'); });
+  feedbackEl.textContent = "Time's up! 0 points.";
+  feedbackEl.style.color = 'var(--muted)';
+  if(soundEnabled) soundWrong();
+  nextQBtn.disabled = false;
+}
+
+/* next button */
+nextQBtn.addEventListener('click', ()=>{
+  stopQuizTimer();
+  quizCurrent++;
+  if(quizCurrent < QUIZ_QUESTIONS_PER_ROUND){
+    showQuizQuestion();
+  } else {
+    finishQuiz();
+  }
+});
+quitQuizBtn.addEventListener('click', ()=>{
+  stopQuizTimer();
+  $('quiz-area').classList.add('hidden');
+  $('landing').classList.remove('hidden');
+});
+
+/* finish quiz */
+function finishQuiz(){
+  stopQuizTimer();
+  $('quiz-area').classList.add('hidden');
+  // compute medal by points (scaling)
+  // max possible: 15 * 10 = 150
+  const maxPossible = QUIZ_QUESTIONS_PER_ROUND * QUIZ_POINTS_CORRECT;
+  const pct = Math.round((quizScore / maxPossible) * 100);
+  $('result-area').classList.remove('hidden');
+  $('resultMedal').textContent = (pct>=80?'🥇':(pct>=50?'🥈':'🥉'));
+  $('resultScore').textContent = `Quiz score: ${quizScore} pts — ${pct}%`;
+  $('resultMessage').textContent = (pct>=80 ? "Outstanding! You're a DataHaven guardian!" : (pct>=50 ? "Great! Solid DataHaven knowledge." : "Keep learning — progress beats perfection!"));
+  // show leaderboard preview
+  renderLeaderboard('quiz', $('resultLeaderboard'));
+  // store temporary last result (for save)
+  window.lastResult = { type:'quiz', name:playerName, score:quizScore, pct, timestamp:Date.now() };
+}
+
+/* Save score to local leaderboard */
+$('saveScoreBtn').addEventListener('click', ()=>{
+  if(!window.lastResult) return alert('No score to save.');
+  const key = (window.lastResult.type==='quiz') ? LB_QUIZ_KEY : LB_REACTOR_KEY;
+  const board = readJSON(key, []);
+  board.push({name:window.lastResult.name, score:window.lastResult.score || 0, pct:window.lastResult.pct || 0, time:window.lastResult.timestamp});
+  // sort desc by score
+  board.sort((a,b)=>b.score - a.score);
+  const truncated = board.slice(0,LEADERBOARD_LIMIT);
+  saveJSON(key, truncated);
+  alert('Saved to leaderboard!');
+  renderLeaderboard(window.lastResult.type, $('resultLeaderboard'));
+});
+
+/* share text */
+$('shareScoreBtn').addEventListener('click', ()=>{
+  if(!window.lastResult) return alert('No score to share.');
+  const t = `${window.lastResult.name} scored ${window.lastResult.score} pts in DataHaven Quiz (${window.lastResult.pct}%) — can you beat it? 🦌`;
+  navigator.clipboard?.writeText(t).then(()=>alert('Share text copied to clipboard!'));
+});
+
+/* play again */
+$('playAgainBtn').addEventListener('click', ()=>{
+  $('result-area').classList.add('hidden');
+  startQuizFlow(false);
+});
+
+/* ------- Reactor Mini-game ------- */
+let reactorState = { round:0, score:0, targetColor:'BLUE', running:false, timer:null, colorCycle:null };
+const COLORS = ['RED','GREEN','BLUE','YELLOW','PURPLE','CYAN','ORANGE'];
+
+function startReactorFlow(){
+  $('landing').classList.add('hidden');
+  $('quiz-area').classList.add('hidden');
+  $('result-area').classList.add('hidden');
+  $('reactor-area').classList.remove('hidden');
+  // reset reactor UI
+  $('reactorScore').textContent = '0';
+  $('reactorRound').textContent = '0';
+  $('reactorFeedback').textContent = '';
+}
+
+$('startReactorBtn').addEventListener('click', ()=>{
+  startReactorGame();
+});
+$('quitReactor').addEventListener('click', ()=>{
+  stopReactor();
+  $('reactor-area').classList.add('hidden');
+  $('landing').classList.remove('hidden');
+});
+
+function startReactorGame(){
+  reactorState.round = 0; reactorState.score = 0; reactorState.running = true;
+  $('reactorScore').textContent = '0';
+  nextReactorRound();
+}
+
+function nextReactorRound(){
+  if(!reactorState.running) return;
+  reactorState.round++;
+  $('reactorRound').textContent = reactorState.round;
+  if(reactorState.round > REACTOR_ROUNDS){
+    finishReactor();
+    return;
+  }
+  reactorState.targetColor = COLORS[Math.floor(Math.random()*COLORS.length)];
+  $('targetName').textContent = reactorState.targetColor;
+  // start cycling colors quickly
+  const btn = $('reactorBtn');
+  if(reactorState.colorCycle) clearInterval(reactorState.colorCycle);
+  let idx=0;
+  reactorState.colorCycle = setInterval(()=>{
+    const c = COLORS[idx % COLORS.length];
+    btn.style.background = colorFromName(c);
+    btn.textContent = c;
+    idx++;
+  }, 350); // cycle every 350ms
+
+  // allow user to click
+  btn.onclick = ()=> {
+    // click registers success if current visible color matches target
+    const visible = btn.textContent;
+    if(visible === reactorState.targetColor){
+      reactorState.score += 3; $('reactorFeedback').textContent = 'Nice! +3'; $('reactorFeedback').style.color = 'var(--good)'; if(soundEnabled) soundCorrect();
+    } else {
+      reactorState.score -= 1; $('reactorFeedback').textContent = 'Miss! -1'; $('reactorFeedback').style.color = 'var(--bad)'; if(soundEnabled) soundWrong();
+    }
+    $('reactorScore').textContent = reactorState.score;
+    // brief pause then next round
+    clearInterval(reactorState.colorCycle);
+    setTimeout(()=> nextReactorRound(), 600);
+  };
+
+  // if user does not click within X ms -> auto next (timeout)
+  setTimeout(()=>{
+    if(reactorState.round <= REACTOR_ROUNDS){
+      // if user didn't click (score unchanged), mark as miss (no change)
+      // advance automatically
+      clearInterval(reactorState.colorCycle);
+      $('reactorFeedback').textContent = 'Too slow!'; $('reactorFeedback').style.color = 'var(--muted)';
+      setTimeout(()=> nextReactorRound(), 500);
+    }
+  }, 2200); // each round lasts ~2.2s
+}
+
+function stopReactor(){
+  reactorState.running = false;
+  if(reactorState.colorCycle) clearInterval(reactorState.colorCycle);
+}
+
+/* reactor end */
+function finishReactor(){
+  stopReactor();
+  reactorState.running = false;
+  // show result area with reactor stats
+  $('reactor-area').classList.add('hidden');
+  $('result-area').classList.remove('hidden');
+  $('resultMedal').textContent = (reactorState.score >= (REACTOR_ROUNDS*2) ? '🥇' : (reactorState.score >= (REACTOR_ROUNDS) ? '🥈' : '🥉'));
+  $('resultScore').textContent = `Reactor score: ${reactorState.score} pts`;
+  $('resultMessage').textContent = reactorState.score >= (REACTOR_ROUNDS*2) ? "Twitch reflexes! Great job." : (reactorState.score >= (REACTOR_ROUNDS) ? "Nice reflexes — solid!" : "Practice makes perfect — try again!");
+  window.lastResult = { type:'reactor', name:playerName, score:reactorState.score, pct:0, timestamp:Date.now() };
+  renderLeaderboard('reactor', $('resultLeaderboard'));
+}
+
+/* Helper to map color name to CSS color */
+function colorFromName(name){
+  switch(name){
+    case 'RED': return '#e74c3c';
+    case 'GREEN': return '#2ecc71';
+    case 'BLUE': return '#3498db';
+    case 'YELLOW': return '#f1c40f';
+    case 'PURPLE': return '#9b59b6';
+    case 'CYAN': return '#1abc9c';
+    case 'ORANGE': return '#e67e22';
+    default: return '#123456';
+  }
+}
+
+/* ------- Leaderboard viewing & Hall ------- */
+function renderLeaderboard(type, container){
+  const key = (type==='quiz')?LB_QUIZ_KEY:LB_REACTOR_KEY;
+  const board = readJSON(key, []);
+  container.innerHTML = `<strong style="color:var(--accent)">${type === 'quiz' ? 'Quiz' : 'Reactor'} Leaderboard</strong>`;
+  if(board.length === 0){ container.innerHTML += '<div style="color:var(--muted); margin-top:6px">No scores yet</div>'; return; }
+  const ul = document.createElement('ul');
+  ul.style.listStyle='none'; ul.style.padding=0; ul.style.margin='8px 0 0 0';
+  board.forEach((r, i)=>{
+    const li = document.createElement('li');
+    li.innerHTML = `<strong>#${i+1}</strong> ${r.name} — <span style="float:right">${r.score} pts</span>`;
+    ul.appendChild(li);
+  });
+  container.appendChild(ul);
+}
+
+function showLeaderboard(type){
+  $('landing').classList.add('hidden');
+  $('quiz-area').classList.add('hidden');
+  $('reactor-area').classList.add('hidden');
+  $('result-area').classList.remove('hidden');
+  $('resultMedal').textContent = '📊';
+  $('resultScore').textContent = `${type==='quiz' ? 'Quiz' : 'Reactor'} leaderboard`;
+  $('resultMessage').textContent = 'Top scores (local)';
+  renderLeaderboard(type, $('resultLeaderboard'));
+}
+
+/* Hall of Guardians: combine both leaderboards, show top combined */
+function showHall(){
+  const q = readJSON(LB_QUIZ_KEY, []);
+  const r = readJSON(LB_REACTOR_KEY, []);
+  const combined = {};
+  q.forEach(entry => { combined[entry.name] = (combined[entry.name] || 0) + (entry.score||0); });
+  r.forEach(entry => { combined[entry.name] = (combined[entry.name] || 0) + (entry.score||0); });
+  const arr = Object.keys(combined).map(name => ({name, score:combined[name]})).sort((a,b)=>b.score-a.score).slice(0,LEADERBOARD_LIMIT);
+  $('landing').classList.add('hidden');
+  $('quiz-area').classList.add('hidden');
+  $('reactor-area').classList.add('hidden');
+  $('result-area').classList.remove('hidden');
+  $('resultMedal').textContent = '🏛️';
+  $('resultScore').textContent = 'Hall of Guardians — Combined Top';
+  $('resultMessage').textContent = 'Combined leaderboard across games';
+  const cont = $('resultLeaderboard'); cont.innerHTML = '';
+  if(arr.length===0) cont.innerHTML = '<div style="color:var(--muted)">No combined scores yet</div>';
+  else {
+    const ul = document.createElement('ul'); ul.style.listStyle='none'; ul.style.padding=0;
+    arr.forEach((e,i)=>{ const li=document.createElement('li'); li.innerHTML=`<strong>#${i+1}</strong> ${e.name} — <span style="float:right">${e.score} pts</span>`; ul.appendChild(li); });
+    cont.appendChild(ul);
+  }
+}
+
+/* Utility to render result leaderboard by default type on finish if not provided */
+function renderLeaderboardDefault(){
+  if(window.lastResult && window.lastResult.type) renderLeaderboard(window.lastResult.type, $('resultLeaderboard'));
+}
+
+/* ensure UI initial states */
+$('timerLabel').textContent = perQuestionTime + 's';
+$('soundState').textContent = soundEnabled ? 'On' : 'Muted';
+
+/* auto-play safety: resume audio on user gesture */
+document.body.addEventListener('click', ()=> { if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); }, {once:true});
+
+/* init landing states */
+(function init(){
+  $('landing').classList.remove('hidden');
+  $('quiz-area').classList.add('hidden');
+  $('reactor-area').classList.add('hidden');
+  $('result-area').classList.add('hidden');
+})();
+</script>
+</body>
+</html>
